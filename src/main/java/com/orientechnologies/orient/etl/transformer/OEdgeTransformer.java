@@ -35,6 +35,7 @@ public class OEdgeTransformer extends OAbstractLookupTransformer {
   private boolean   directionOut = true;
   private ODocument targetVertexFields;
   private ODocument edgeFields;
+  private boolean   skipDuplicates = false;
 
   @Override
   public ODocument getConfiguration() {
@@ -50,7 +51,9 @@ public class OEdgeTransformer extends OAbstractLookupTransformer {
             + "{targetVertexFields:{optional:true,description:'Map of fields to set in target vertex. Use ${$input.<field>} to get input field values'}},"
             + "{edgeFields:{optional:true,description:'Map of fields to set in edge. Use ${input.<field>} to get input field values'}},"
             + "{unresolvedVertexAction:{optional:true,description:'action when a unresolved vertices is found',values:"
-            + stringArray2Json(ACTION.values()) + "}}]," + "input:['ODocument','OrientVertex'],output:'OrientVertex'}");
+            + stringArray2Json(ACTION.values()) + "}},"
+            + "{skipDuplicates:{optional:true,description:'Edges with duplicate keys are skipped', default:false}},"
+            + "]" + "input:['ODocument','OrientVertex'],output:'OrientVertex'}");
   }
 
   @Override
@@ -71,6 +74,8 @@ public class OEdgeTransformer extends OAbstractLookupTransformer {
       targetVertexFields = (ODocument) iConfiguration.field("targetVertexFields");
     if (iConfiguration.containsField("edgeFields"))
       edgeFields = (ODocument) iConfiguration.field("edgeFields");
+    if (iConfiguration.containsField("skipDuplicates"))
+      skipDuplicates = (Boolean) resolve(iConfiguration.field("skipDuplicates"));
   }
 
   @Override
@@ -182,6 +187,9 @@ public class OEdgeTransformer extends OAbstractLookupTransformer {
         log(OETLProcessor.LOG_LEVELS.DEBUG, "created new edge=%s", edge);
         return edge;
       } catch (ORecordDuplicatedException orde) {
+        if (!skipDuplicates) {
+          throw orde;
+        }
         log(OETLProcessor.LOG_LEVELS.DEBUG, "edge already exists");
       }
 
