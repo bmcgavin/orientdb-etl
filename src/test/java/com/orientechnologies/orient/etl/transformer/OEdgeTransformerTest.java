@@ -101,4 +101,62 @@ public class OEdgeTransformerTest extends ETLBaseTest {
     assertEquals(v0.getProperty("surname"), "Miner");
     assertEquals(v0.getProperty("id"), 0);
   }
+
+  @Test
+  public void testEdgeSkipDuplicatesTrue() {
+    process("{config:{log:'debug'},source: { content: { value: 'id,vertexId,links\n0,1,2\n1,2,1\n2,1,2' } }, extractor : { row: {} },"
+        + " transformers: [{csv: {}}, "
+        + "{merge: {joinFieldName: 'vertexId', lookup: 'VertexWithOneEdge.vertexId'}},"
+        + "{vertex: {class:'VertexWithOneEdge'}}, "
+        + "{edge:{unresolvedVertexAction:'CREATE',unresolvedLinkAction:'CREATE',class:'EdgeWithIndex',joinFieldName:'links',lookup:'VertexWithOneEdge.vertexId',"
+        + " skipDuplicates:true}},"
+        + "{field:{ fieldName:'links',operation:'remove'}}"
+        + "], loader: { orientdb: { dbURL: 'memory:ETLBaseTest', dbType:'graph', classes: ["
+        + "{name: 'VertexWithOneEdge', extends: 'V'},{name: 'EdgeWithIndex', extends: 'E'}"
+        + "],indexes: ["
+        + "{class: 'VertexWithOneEdge', fields:['vertexId:string'], type: 'UNIQUE_HASH_INDEX'},"
+        + "{class: 'EdgeWithIndex', fields:['in:LINK','out:LINK'], type: 'UNIQUE_HASH_INDEX'}"
+        + "]}}}");
+
+    assertEquals(2, graph.countVertices("VertexWithOneEdge"));
+    final Iterator<Vertex> v = graph.getVerticesOfClass("VertexWithOneEdge").iterator();
+    assertTrue(v.hasNext());
+    final Vertex v1 = v.next();
+    assertNotNull(v1);
+    final Vertex v2 = v.next();
+    assertNotNull(v2);
+
+    //Would be 3 without the in/out index and skipDuplicates:false
+    assertEquals(2, graph.countEdges("EdgeWithIndex"));
+
+  }
+
+  @Test
+  public void testEdgeSkipDuplicatesFalse() {
+    process("{config:{log:'debug'},source: { content: { value: 'id,vertexId,links\n0,1,2\n1,2,1\n2,1,2' } }, extractor : { row: {} },"
+        + " transformers: [{csv: {}}, "
+        + "{merge: {joinFieldName: 'vertexId', lookup: 'VertexWithOneEdge.vertexId'}},"
+        + "{vertex: {class:'VertexWithOneEdge'}}, "
+        + "{edge:{unresolvedVertexAction:'CREATE',unresolvedLinkAction:'CREATE',class:'EdgeWithIndex',joinFieldName:'links',lookup:'VertexWithOneEdge.vertexId',"
+        + " skipDuplicates:false}},"
+        + "{field:{ fieldName:'links',operation:'remove'}}"
+        + "], loader: { orientdb: { dbURL: 'memory:ETLBaseTest', dbType:'graph', classes: ["
+        + "{name: 'VertexWithOneEdge', extends: 'V'},{name: 'EdgeWithIndex', extends: 'E'}"
+        + "],indexes: ["
+        + "{class: 'VertexWithOneEdge', fields:['vertexId:string'], type: 'UNIQUE_HASH_INDEX'}"
+        + "]}}}");
+
+    assertEquals(2, graph.countVertices("VertexWithOneEdge"));
+    final Iterator<Vertex> v = graph.getVerticesOfClass("VertexWithOneEdge").iterator();
+    assertTrue(v.hasNext());
+    final Vertex v1 = v.next();
+    assertNotNull(v1);
+    final Vertex v2 = v.next();
+    assertNotNull(v2);
+
+    assertEquals(3, graph.countEdges("EdgeWithIndex"));
+
+  }
+
+
 }
